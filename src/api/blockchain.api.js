@@ -13,8 +13,8 @@ export const fetchPendingTransactions = () =>
 export const fetchAllTransactions = () =>
   client.get(ENDPOINTS.TRANSACTIONS_ALL);
 
-export const addTransaction = (fromAddress, toAddress, amount) =>
-  client.post(ENDPOINTS.TRANSACTIONS, { fromAddress, toAddress, amount });
+export const addTransaction = (transactionData) =>
+  client.post(ENDPOINTS.TRANSACTIONS, transactionData);
 
 export const mineBlock = (miningRewardAddress = 'miner1') =>
   client.post(ENDPOINTS.MINE, { miningRewardAddress });

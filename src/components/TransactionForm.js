@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import useSignature from '../hooks/useSignature';
 import './TransactionForm.css';
 import { addTransaction } from '../api/blockchain.api';
 
@@ -9,7 +10,16 @@ const TransactionForm = ({ onTransactionAdded }) => {
     amount: '',
   });
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [signing, setSigning] = useState(false);
+  const [message, setMessage] = useState(''); 
+  const { signTransaction } = useSignature();
+
+  const formatSignature = (signature) => {
+    if (!signature) return '';
+    return `${signature.substring(0, 8)}...${signature.substring(signature.length - 8)}`;
+  };
+
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -22,14 +32,48 @@ const TransactionForm = ({ onTransactionAdded }) => {
     setMessage('');
 
     try {
-      await addTransaction(formData.fromAddress, formData.toAddress, formData.amount);
+      // Step 1: Lookup wallet from localStorage
+      const wallets = JSON.parse(localStorage.getItem('wallets') || '[]');
+      const wallet = wallets.find(w => w.publicKey === formData.fromAddress || w.address === formData.fromAddress);
+      
+      if (!wallet) {
+        throw new Error('Wallet not found for this address');
+      }
+
+      // Step 2: Sign transaction using useSignature hook
+      const { signature, timestamp } = await signTransaction(
+        formData.fromAddress,
+        formData.toAddress,
+        formData.amount,
+        wallet.privateKey
+      );
+
+      // Show signing status and signature
+      setSigning(true); 
+      setMessage(`Signature: ${formatSignature(signature)}`);
+
+      // Step 3: Add delay before submitting to backend
+      await delay(2000);
+
+      // Step 4: Submit to backend
+      await addTransaction({
+        fromAddress: formData.fromAddress,
+        toAddress: formData.toAddress,
+        amount: formData.amount,
+        timestamp,
+        signature,
+        publicKey: wallet.publicKey
+      });
+
       setMessage('Transaction added successfully!');
       setFormData({ fromAddress: '', toAddress: '', amount: '' });
       onTransactionAdded();
     } catch (err) {
       setMessage(err.message || 'Failed to add transaction');
+      console.error(err);
     } finally {
       setLoading(false);
+      setSigning(false);  
     }
   };
 
@@ -46,7 +90,7 @@ const TransactionForm = ({ onTransactionAdded }) => {
             name="fromAddress"
             value={formData.fromAddress}
             onChange={handleChange}
-            placeholder="e.g., address1"
+            placeholder="e.g., 04a1b2c3d4e5f6..."
             required
           />
         </div>
@@ -59,7 +103,7 @@ const TransactionForm = ({ onTransactionAdded }) => {
             name="toAddress"
             value={formData.toAddress}
             onChange={handleChange}
-            placeholder="e.g., address2"
+            placeholder="e.g., 04f7e8d9c0b1a2..."
             required
           />
         </div>
@@ -72,7 +116,7 @@ const TransactionForm = ({ onTransactionAdded }) => {
             name="amount"
             value={formData.amount}
             onChange={handleChange}
-            placeholder="e.g., 100"
+            placeholder="e.g., 100.00"
             step="0.01"
             min="0"
             required
@@ -80,7 +124,7 @@ const TransactionForm = ({ onTransactionAdded }) => {
         </div>
         
         {message && (
-          <div className={`form-message ${message.includes('success') ? 'success' : 'error'}`}>
+          <div className={`form-message ${signing ? 'signing' : message.includes('success') ? 'success' : 'error'}`}>
             {message}
           </div>
         )}

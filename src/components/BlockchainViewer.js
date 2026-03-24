@@ -1,6 +1,11 @@
 import React from 'react';
 import './BlockchainViewer.css';
 
+const formatAddress = (address) => {
+  if (!address) return 'Mining Reward';
+  return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
+};
+
 const BlockchainViewer = ({ blockchain }) => {
   if (!blockchain || !blockchain.chain) {
     return (
@@ -57,12 +62,22 @@ const BlockchainViewer = ({ blockchain }) => {
                     <div key={txIndex} className="transaction-item">
                       <div className="tx-from">
                         <span className="tx-label">From:</span>
-                        <span className="tx-address">{tx.fromAddress || 'Mining Reward'}</span>
+                        <span 
+                          className="tx-address" 
+                          title={tx.fromAddress || 'Mining Reward'}
+                        >
+                          {formatAddress(tx.fromAddress)}
+                        </span>
                       </div>
                       <div className="tx-arrow">→</div>
                       <div className="tx-to">
                         <span className="tx-label">To:</span>
-                        <span className="tx-address">{tx.toAddress}</span>
+                        <span 
+                          className="tx-address" 
+                          title={tx.toAddress}
+                        >
+                          {formatAddress(tx.toAddress)}
+                        </span>
                       </div>
                       <div className="tx-amount">{tx.amount}</div>
                     </div>

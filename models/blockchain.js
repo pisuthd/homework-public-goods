@@ -1,4 +1,11 @@
 const crypto = require('crypto');
+const secp = require('@noble/secp256k1');
+const { hmac } = require('@noble/hashes/hmac.js');
+const { sha256 } = require('@noble/hashes/sha2.js');
+
+// Configure hash functions for sync methods
+secp.hashes.hmacSha256 = (key, msg) => hmac(sha256, key, msg);
+secp.hashes.sha256 = sha256;
 
 class Block {
   constructor(timestamp, transactions, previousHash = '') {
@@ -41,12 +48,13 @@ class Block {
 }
 
 class Transaction {
-  constructor(fromAddress, toAddress, amount) {
+  constructor(fromAddress, toAddress, amount, timestamp = null) {
     this.fromAddress = fromAddress;
     this.toAddress = toAddress;
     this.amount = amount;
-    this.timestamp = Date.now();
+    this.timestamp = timestamp || Date.now();
     this.signature = '';
+    this.publicKey = '';
   }
 
   calculateHash() {
@@ -56,37 +64,39 @@ class Transaction {
       .digest('hex');
   }
 
-  signTransaction(signingKey) {
-    if (signingKey.getPublic('hex') !== this.fromAddress) {
-      throw new Error('You cannot sign transactions for other wallets!');
-    }
-
-    const hashTx = this.calculateHash();
-    const sig = signingKey.sign(hashTx, 'base64');
-    this.signature = sig.toDER('hex');
+  attachSignature(signature, publicKey) {
+    this.signature = signature;
+    this.publicKey = publicKey;
   }
 
   isValid() {
-    if (this.fromAddress === null) return true;
-
-    if (!this.signature || this.signature.length === 0) {
+    // Mining rewards don't require signatures 
+    if (!this.fromAddress) {
       return true;
     }
 
-    try {
-      const publicKey = crypto.createPublicKey({
-        key: Buffer.from(this.fromAddress, 'hex'),
-        format: 'der',
-        type: 'spki',
-      });
+    if (!this.signature || !this.publicKey) {
+      throw new Error('Transaction is not signed');
+    }
 
-      return crypto.verify(
-        null,
-        Buffer.from(this.calculateHash()),
-        publicKey,
-        Buffer.from(this.signature, 'hex')
+    try {
+      // Convert hex strings to Uint8Array
+      const signatureBytes = new Uint8Array(
+        this.signature.match(/.{1,2}/g).map(b => parseInt(b, 16))
       );
-    } catch {
+      // Add 0x04 prefix for full public key
+      const fullPublicKey = '04' + this.publicKey;
+      const publicKeyBytes = new Uint8Array(
+        fullPublicKey.match(/.{1,2}/g).map(b => parseInt(b, 16))
+      );
+      const messageBytes = new Uint8Array(
+        this.calculateHash().match(/.{1,2}/g).map(b => parseInt(b, 16))
+      );
+
+      // Verify signature using @noble/secp256k1
+      return secp.verify(signatureBytes, messageBytes, publicKeyBytes, { prehash: false });
+    } catch (err) {
+      console.error('Signature verification failed:', err);
       return false;
     }
   }
@@ -126,6 +136,12 @@ class Blockchain {
   addTransaction(transaction) {
     if (!transaction.fromAddress || !transaction.toAddress) {
       throw new Error('Transaction must include from and to address');
+    }
+
+    // Verify sender has sufficient balance
+    const senderBalance = this.getBalanceOfAddress(transaction.fromAddress);
+    if (senderBalance < transaction.amount) {
+      throw new Error(`Insufficient balance.`);
     }
 
     if (!transaction.isValid()) {

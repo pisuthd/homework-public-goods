@@ -21,6 +21,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@noble/hashes": "^2.0.1",
+    "@noble/secp256k1": "^3.0.0",
     "axios": "^1.6.0",
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
