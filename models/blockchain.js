@@ -45,6 +45,19 @@ class Block {
     }
     return true;
   }
+
+  /**
+   * Creates a Block instance from a plain object
+   * @param {Object} obj - The object containing block data
+   * @returns {Block} A Block instance with restored data
+   */
+  static fromObject(obj) {
+    const block = new Block(obj.timestamp, [], obj.previousHash);
+    block.transactions = obj.transactions.map(tx => Transaction.fromObject(tx));
+    block.nonce = obj.nonce;
+    block.hash = obj.hash;
+    return block;
+  }
 }
 
 class Transaction {
@@ -100,6 +113,18 @@ class Transaction {
       return false;
     }
   }
+
+  /**
+   * Creates a Transaction instance from a plain object
+   * @param {Object} obj - The object containing transaction data
+   * @returns {Transaction} A Transaction instance with restored data
+   */
+  static fromObject(obj) {
+    const tx = new Transaction(obj.fromAddress, obj.toAddress, obj.amount, obj.timestamp);
+    tx.signature = obj.signature || '';
+    tx.publicKey = obj.publicKey || '';
+    return tx;
+  }
 }
 
 class Blockchain {
@@ -131,6 +156,13 @@ class Blockchain {
 
     this.chain.push(block);
     this.pendingTransactions = [];
+
+    // Save blockchain state after successful mining (fire and forget)
+    const persistence = require('../services/persistence.service');
+    const logger = require('../utils/logger');
+    persistence.save(this).catch(err => {
+      logger.error(`Failed to save blockchain after mining: ${err.message}`);
+    });
   }
 
   addTransaction(transaction) {
@@ -149,6 +181,13 @@ class Blockchain {
     }
 
     this.pendingTransactions.push(transaction);
+
+    // Save blockchain state after successful transaction addition (fire and forget)
+    const persistence = require('../services/persistence.service');
+    const logger = require('../utils/logger');
+    persistence.save(this).catch(err => {
+      logger.error(`Failed to save blockchain after transaction: ${err.message}`);
+    });
   }
 
   getBalanceOfAddress(address) {
