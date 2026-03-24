@@ -6,7 +6,7 @@ const { sendError } = require('../utils/response');
 const errorHandler = (err, req, res, next) => {
   const status = err.status || err.statusCode || 500;
   const message =
-    status < 500 ? err.message : 'An unexpected error occurred';
+    status <= 500 ? err.message : 'An unexpected error occurred';
 
   logger.error(`[${req.method}] ${req.originalUrl} → ${status}: ${err.message}`);
 
