@@ -22,6 +22,9 @@ export const mineBlock = (miningRewardAddress = 'miner1') =>
 export const fetchBalance = (address) =>
   client.get(ENDPOINTS.balance(address));
 
+export const createWallet = () =>
+  client.post(ENDPOINTS.WALLETS);
+
 export const fetchDashboard = () =>
   Promise.all([fetchChain(), fetchStats()]).then(([chainData, statsData]) => ({
     chainData,
