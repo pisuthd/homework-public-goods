@@ -236,6 +236,50 @@ PORT=3003 npm run dev
 
 ---
 
+
+## Changes
+
+### New Flow: Multi-Wallet System
+
+We can now generate multiple wallets using the **@noble/secp256k1** elliptic curve library. Each wallet includes a public/private key pair for transactions. Transactions are signed on the frontend using the sender's private key, then verified by the backend before being added to the blockchain.
+
+**Key features:**
+- Generate wallets with `POST /api/wallets`
+- Sign transactions client-side (private key never leaves the browser)
+- Backend validates signatures and sender balances
+- First wallet automatically becomes the default miner address
+- Transfer coins between any wallets with cryptographic guarantees
+
+### Blockchain Persistence
+
+The blockchain now persists to `blockchain.json` automatically. State is saved after every mining operation and transaction, ensuring data survives server restarts. The service uses synchronous loading during initialization to avoid race conditions, with full chain integrity validation before loading.
+
+**Technical implementation:**
+- `services/persistence.service.js` handles all persistence logic
+- `Block.fromObject()` and `Transaction.fromObject()` for serialization
+- Graceful fallback to fresh blockchain on corruption
+- No changes required to server.js
+
+### API Updates
+
+- **POST `/api/wallets`** - Returns `{ publicKey, privateKey }` for new wallets
+- **POST `/api/transactions`** - Now requires `signature` and `publicKey` fields
+
+### UI/UX Improvements
+
+- Refresh balance button on each wallet card
+- Truncated public keys for better readability
+- Clear error messages with auto-dismiss
+
+## Known Limitations
+
+- Missing Merkle tree for transaction verification within blocks
+- Private keys generated client-side but no encryption implemented 
+- No data versioning system
+- `blockchain.json` overwritten on each save (no history)
+
+---
+
 ## License
 
 MIT — for learning and assessment purposes.
